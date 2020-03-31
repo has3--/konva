@@ -9,6 +9,9 @@
     // "strict": true
     // "strictFunctionTypes": true
   },
-  "include": ["./src/*.ts"]
+  "include": [
+    "./src/*",
+    "./node_modules/canvas2svg/canvas2svg.js"
+  ]
   // "include": ["./types/*.ts"]
 }

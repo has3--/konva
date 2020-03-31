@@ -1,6 +1,7 @@
 import { glob, Konva } from './Global';
 import { Node } from './Node';
 import { IRect, RGB, RGBA } from './types';
+import { C2S } from 'canvas2svg'
 
 export type Point = {
   x: number;
@@ -565,6 +566,14 @@ export const Util = {
   },
   createCanvasElement() {
     var canvas = document.createElement('canvas');
+    // on some environments canvas.style is readonly
+    try {
+      (<any>canvas).style = canvas.style || {};
+    } catch (e) {}
+    return canvas;
+  },
+  createSvgElement() {
+    var canvas = new C2S();
     // on some environments canvas.style is readonly
     try {
       (<any>canvas).style = canvas.style || {};
