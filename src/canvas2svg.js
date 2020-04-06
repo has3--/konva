@@ -1194,12 +1194,19 @@
     /**
      * Not yet implemented
      */
-    ctx.prototype.drawFocusRing = function () {};
-    ctx.prototype.createImageData = function () {};
-    ctx.prototype.getImageData = function () {};
-    ctx.prototype.putImageData = function () {};
-    ctx.prototype.globalCompositeOperation = function () {};
-    ctx.prototype.setTransform = function () {};
+    ctx.prototype.drawFocusRing = function () { }; //konva: not used
+    ctx.prototype.createImageData = function () { }; //konva: do not use
+    ctx.prototype.getImageData = function () { }; //konva: only used in hitcanvas
+    ctx.prototype.putImageData = function () { }; //konva: only used in hitcanvas
+
+    // added to STYLES, not used in __applyStyleToCurrentElement & probably not used in Konva
+    ctx.prototype.globalCompositeOperation = "source-over";
+
+    //TODO:
+    ctx.prototype.setTransform = function (a, b, c, d, e, f) {
+        console.warn(format("C2S setTransform called ({a},{b},{c},{d},{e},{f})", { a: a, b: b, c: c, d: d, e: e, f: f }))
+        this.__addTransform(format("matrix({a},{b},{c},{d},{e},{f})", { a: a, b: b, c: c, d: d, e: e, f: f }));
+    };
 
     //add options for alternative namespace
     if (typeof window === "object") {
