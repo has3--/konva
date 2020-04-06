@@ -26,10 +26,11 @@ function getDevicePixelRatio() {
   return _pixelRatio;
 }
 
-interface ICanvasConfig {
+export interface ICanvasConfig {
   width?: number;
   height?: number;
   pixelRatio?: number;
+  svgContext?: CanvasRenderingContext2D;
 }
 
 /**
@@ -46,6 +47,7 @@ interface ICanvasConfig {
 export class Canvas {
   pixelRatio = 1;
   _canvas: HTMLCanvasElement;
+  _context: CanvasRenderingContext2D;
   context: Context;
   width = 0;
   height = 0;
@@ -69,6 +71,11 @@ export class Canvas {
     this._canvas.style.position = 'absolute';
     this._canvas.style.top = '0';
     this._canvas.style.left = '0';
+
+    //take context from config if supplied
+    this._context = config.svgContext
+      ? config.svgContext
+      : this._canvas.getContext("2d")
   }
 
   /**
@@ -79,6 +86,9 @@ export class Canvas {
    */
   getContext() {
     return this.context;
+  }
+  get2DContext() {
+    return this._context;
   }
   getPixelRatio() {
     return this.pixelRatio;
@@ -96,17 +106,16 @@ export class Canvas {
     this.width = this._canvas.width = width * this.pixelRatio;
     this._canvas.style.width = width + 'px';
 
-    var pixelRatio = this.pixelRatio,
-      _context = this.getContext()._context;
-    _context.scale(pixelRatio, pixelRatio);
+    var pixelRatio = this.pixelRatio;
+    this._context.scale(pixelRatio, pixelRatio);
   }
   setHeight(height) {
     // take into account pixel ratio
     this.height = this._canvas.height = height * this.pixelRatio;
     this._canvas.style.height = height + 'px';
-    var pixelRatio = this.pixelRatio,
-      _context = this.getContext()._context;
-    _context.scale(pixelRatio, pixelRatio);
+
+    var pixelRatio = this.pixelRatio;
+    this._context.scale(pixelRatio, pixelRatio);
   }
   getWidth() {
     return this.width;
@@ -137,8 +146,8 @@ export class Canvas {
       } catch (err) {
         Util.error(
           'Unable to get data URL. ' +
-            err.message +
-            ' For more info read https://konvajs.org/docs/posts/Tainted_Canvas.html.'
+          err.message +
+          ' For more info read https://konvajs.org/docs/posts/Tainted_Canvas.html.'
         );
         return '';
       }
@@ -171,6 +180,7 @@ Factory.addGetterSetter(Canvas, 'pixelRatio', undefined, getNumberValidator());
 export class SceneCanvas extends Canvas {
   constructor(config: ICanvasConfig = { width: 0, height: 0 }) {
     super(config);
+
     this.context = new SceneContext(this);
     this.setSize(config.width, config.height);
   }

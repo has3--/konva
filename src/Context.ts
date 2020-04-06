@@ -97,7 +97,7 @@ export class Context {
 
   constructor(canvas: Canvas) {
     this.canvas = canvas;
-    this._context = canvas._canvas.getContext('2d') as CanvasRenderingContext2D;
+    this._context = canvas.get2DContext();
 
     if (Konva.enableTrace) {
       this.traceArr = [];
