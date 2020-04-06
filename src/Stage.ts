@@ -2,13 +2,15 @@ import { Util, Collection } from './Util';
 import { Factory } from './Factory';
 import { Container, ContainerConfig } from './Container';
 import { Konva } from './Global';
-import { SceneCanvas, HitCanvas } from './Canvas';
+import { ICanvasConfig, SceneCanvas, HitCanvas } from './Canvas';
 import { GetSet, Vector2d } from './types';
 import { Shape } from './Shape';
 import { BaseLayer } from './BaseLayer';
 import { DD } from './DragAndDrop';
 import { _registerNode } from './Global';
 import * as PointerEvents from './PointerEvents';
+// import { C2S } from 'canvas2svg';
+const C2S = require("./canvas2svg.js");
 
 export interface StageConfig extends ContainerConfig {
   container: HTMLDivElement | string;
@@ -307,6 +309,40 @@ export class Stage extends Container<BaseLayer> {
     return canvas;
   }
 
+  _toSvg(config) {
+    let libOk = C2S != null;
+    let cfgOk = config != null;
+    if (!libOk) {
+      Util.error("Missing canvas2svg.")
+    }
+    if (!cfgOk) {
+      Util.error("Missing configuration for SVG canvas.");
+    }
+    if (!libOk || !cfgOk) {
+      return null;
+    }
+
+    let x = config.x || 0;
+    let y = config.y || 0;
+    let width = config.width || this.width();
+    let height = config.height || this.height();
+    let pixelRatio = config.pixelRatio || 1;
+
+    let c2s = new C2S(width, height);
+    let cfg = {
+      width: width,
+      height: height,
+      pixelRatio: pixelRatio,
+      svgContext: c2s
+    } as ICanvasConfig;
+
+    let canvas = new SceneCanvas(cfg);
+
+    this.drawScene(canvas, this, true);
+
+    return c2s.getSerializedSvg();
+  }
+
   /**
    * get visible intersection shape. This is the preferred
    *  method for determining if a point intersects a shape or not
@@ -372,8 +408,8 @@ export class Stage extends Container<BaseLayer> {
     if (length > MAX_LAYERS_NUMBER) {
       Util.warn(
         'The stage has ' +
-          length +
-          ' layers. Recommended maximum number of layers is 3-5. Adding more layers into the stage may drop the performance. Rethink your tree structure, you can use Konva.Group.'
+        length +
+        ' layers. Recommended maximum number of layers is 3-5. Adding more layers into the stage may drop the performance. Rethink your tree structure, you can use Konva.Group.'
       );
     }
     layer._setCanvasSize(this.width(), this.height());

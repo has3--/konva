@@ -572,14 +572,6 @@ export const Util = {
     } catch (e) {}
     return canvas;
   },
-  createSvgElement() {
-    var canvas = new C2S();
-    // on some environments canvas.style is readonly
-    try {
-      (<any>canvas).style = canvas.style || {};
-    } catch (e) {}
-    return canvas;
-  },
   createImageElement() {
     return document.createElement('img');
   },
