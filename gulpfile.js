@@ -53,7 +53,12 @@ gulp.task('pre-build', function() {
     .pipe(gulp.dest('./'));
 });
 
-gulp.task('build', gulp.parallel(['update-version-lib', 'pre-build']));
+gulp.task('copy-canvas2svg', function() {
+  return gulp.src('./src/canvas2svg.js')
+    .pipe(gulp.dest('./lib'));
+});
+
+gulp.task('build', gulp.parallel(['update-version-lib', 'pre-build', 'copy-canvas2svg']));
 
 // local server for better development
 gulp.task('server', function() {
