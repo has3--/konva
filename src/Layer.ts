@@ -2,7 +2,7 @@ import { Util, Collection, Point } from './Util';
 import { Container } from './Container';
 import { Factory } from './Factory';
 import { BaseLayer } from './BaseLayer';
-import { HitCanvas } from './Canvas';
+import { HitCanvas, Canvas } from './Canvas';
 import { shapes } from './Shape';
 import { getBooleanValidator } from './Validators';
 import { _registerNode } from './Global';
@@ -119,11 +119,11 @@ export class Layer extends BaseLayer {
   _getIntersection(pos) {
     var ratio = this.hitCanvas.pixelRatio;
     var p = this.hitCanvas.context.getImageData(
-        Math.round(pos.x * ratio),
-        Math.round(pos.y * ratio),
-        1,
-        1
-      ).data,
+      Math.round(pos.x * ratio),
+      Math.round(pos.y * ratio),
+      1,
+      1
+    ).data,
       p3 = p[3],
       colorKey,
       shape;
@@ -161,6 +161,20 @@ export class Layer extends BaseLayer {
     }
 
     Container.prototype.drawScene.call(this, canvas, top);
+
+    this._fire(DRAW, {
+      node: this
+    });
+
+    return this;
+  }
+  //drawScene without clear
+  drawSvg(can: Canvas) {
+    this._fire(BEFORE_DRAW, {
+      node: this
+    });
+
+    Container.prototype.drawSvg.call(this, can);
 
     this._fire(DRAW, {
       node: this

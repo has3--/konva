@@ -324,6 +324,10 @@ export class Transform {
 
     return this.translate(xt, yt);
   }
+  toString() {
+    let o = this.m;
+    return `[${o[0].toFixed(0)}, ${o[1].toFixed(0)}, ${o[2].toFixed(0)}, ${o[3].toFixed(0)}, ${o[4].toFixed(0)}, ${o[5].toFixed(0)}]`;
+  }
 }
 
 // CONSTANTS

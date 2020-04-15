@@ -384,10 +384,10 @@ export abstract class Node<Config extends NodeConfig = NodeConfig> {
     y -= offset;
 
     var cachedSceneCanvas = new SceneCanvas({
-        pixelRatio: pixelRatio,
-        width: width,
-        height: height
-      }),
+      pixelRatio: pixelRatio,
+      width: width,
+      height: height
+    }),
       cachedFilterCanvas = new SceneCanvas({
         pixelRatio: pixelRatio,
         width: width,
@@ -469,6 +469,10 @@ export abstract class Node<Config extends NodeConfig = NodeConfig> {
     top?: Node,
     caching?: boolean,
     skipBuffer?: boolean
+  ): void;
+  abstract drawSvg(
+    canvas?: Canvas,
+    top?: Node
   ): void;
   abstract drawHit(
     canvas?: Canvas,
@@ -618,8 +622,8 @@ export abstract class Node<Config extends NodeConfig = NodeConfig> {
             if (typeof filter !== 'function') {
               Util.error(
                 'Filter should be type of function, but got ' +
-                  typeof filter +
-                  ' instead. Please check correct filters'
+                typeof filter +
+                ' instead. Please check correct filters'
               );
               continue;
             }
@@ -629,8 +633,8 @@ export abstract class Node<Config extends NodeConfig = NodeConfig> {
         } catch (e) {
           Util.error(
             'Unable to apply filter. ' +
-              e.message +
-              ' This post my help you https://konvajs.org/docs/posts/Tainted_Canvas.html.'
+            e.message +
+            ' This post my help you https://konvajs.org/docs/posts/Tainted_Canvas.html.'
           );
         }
 
@@ -1404,10 +1408,10 @@ export abstract class Node<Config extends NodeConfig = NodeConfig> {
     if (zIndex < 0 || zIndex >= this.parent.children.length) {
       Util.warn(
         'Unexpected value ' +
-          zIndex +
-          ' for zIndex property. zIndex is just index of a node in children of its parent. Expected value is from 0 to ' +
-          (this.parent.children.length - 1) +
-          '.'
+        zIndex +
+        ' for zIndex property. zIndex is just index of a node in children of its parent. Expected value is from 0 to ' +
+        (this.parent.children.length - 1) +
+        '.'
       );
     }
     var index = this.index;
@@ -1575,8 +1579,8 @@ export abstract class Node<Config extends NodeConfig = NodeConfig> {
       if (!Util.isValidSelector(sel)) {
         Util.warn(
           'Selector "' +
-            sel +
-            '" is invalid. Allowed selectors examples are "#foo", ".bar" or "Group".'
+          sel +
+          '" is invalid. Allowed selectors examples are "#foo", ".bar" or "Group".'
         );
         Util.warn(
           'If you have a custom shape with such className, please change it to start with upper letter like "Triangle".'
@@ -1670,7 +1674,7 @@ export abstract class Node<Config extends NodeConfig = NodeConfig> {
    * @name Konva.Node#getAbsoluteTransform
    * @returns {Konva.Transform}
    */
-  getAbsoluteTransform(top?: Node) {
+  getAbsoluteTransform(top?: Node): Transform {
     // if using an argument, we can't cache the result.
     if (top) {
       return this._getAbsoluteTransform(top);
@@ -1682,36 +1686,47 @@ export abstract class Node<Config extends NodeConfig = NodeConfig> {
       ) as Transform;
     }
   }
-  _getAbsoluteTransform(top?: Node) {
-    var at;
+  _getAbsoluteTransform(top?: Node): Transform {
+    let at: Transform;
+    let dbg = "";
     // we we need position relative to an ancestor, we will iterate for all
     if (top) {
       at = new Transform();
       // start with stage and traverse downwards to self
       this._eachAncestorReverse(function(node: Node) {
         var transformsEnabled = node.transformsEnabled();
-
         if (transformsEnabled === 'all') {
-          at.multiply(node.getTransform());
+          let t = node.getTransform();
+          dbg += ` transformed : ${t.toString()} (node:${node.name()})\r\n`;
+          at.multiply(t);
         } else if (transformsEnabled === 'position') {
+          dbg += ` translated : ${(node.x() - node.offsetX())}, ${(node.y() - node.offsetY())} (${node.x()} - ${node.offsetX()}, ${node.y()} - ${node.offsetY()}) (node:${node.name()})\r\n`;
           at.translate(node.x() - node.offsetX(), node.y() - node.offsetY());
         }
       }, top);
+      console.log("Node::_getAbsoluteTransform(TOP): " + at.toString() + dbg);
       return at;
     } else {
       // try to use a cached value
       if (this.parent) {
         // transform will be cached
         at = this.parent.getAbsoluteTransform().copy();
+        dbg += " parent:";
       } else {
         at = new Transform();
+        dbg += " new:";
       }
+      dbg += at.toString();
       var transformsEnabled = this.transformsEnabled();
       if (transformsEnabled === 'all') {
-        at.multiply(this.getTransform());
+        let t = this.getTransform();
+        dbg += ` transformed : ${t.toString()} (node:${this.name()})\r\n`;
+        at.multiply(t);
       } else if (transformsEnabled === 'position') {
+        dbg += ` translated : ${(this.x() - this.offsetX())}, ${(this.y() - this.offsetY())} (${this.x()} - ${this.offsetX()}, ${this.y()} - ${this.offsetY()}) (this:${this.name()})\r\n`;
         at.translate(this.x() - this.offsetX(), this.y() - this.offsetY());
       }
+      console.log("Node::_getAbsoluteTransform: " + at.toString() + dbg);
       return at;
     }
   }
@@ -1785,6 +1800,36 @@ export abstract class Node<Config extends NodeConfig = NodeConfig> {
    */
   getTransform() {
     return this._getCache(TRANSFORM, this._getTransform) as Transform;
+  }
+  getTransformSvg() {
+    var m = new Transform(),
+      x = this.x(),
+      y = this.y(),
+      rotation = Konva.getAngle(this.rotation()),
+      // scaleX = this.scaleX(),
+      // scaleY = this.scaleY(),
+      skewX = this.skewX(),
+      skewY = this.skewY(),
+      offsetX = this.offsetX(),
+      offsetY = this.offsetY();
+
+    if (x !== 0 || y !== 0) {
+      m.translate(x, y);
+    }
+    if (rotation !== 0) {
+      m.rotate(rotation);
+    }
+    if (skewX !== 0 || skewY !== 0) {
+      m.skew(skewX, skewY);
+    }
+    // if (scaleX !== 1 || scaleY !== 1) {
+    //   m.scale(scaleX, scaleY);
+    // }
+    if (offsetX !== 0 || offsetY !== 0) {
+      m.translate(-1 * offsetX, -1 * offsetY);
+    }
+
+    return m;
   }
   _getTransform(): Transform {
     var m = new Transform(),
@@ -2545,8 +2590,8 @@ export abstract class Node<Config extends NodeConfig = NodeConfig> {
     if (!_NODES_REGISTRY[className]) {
       Util.warn(
         'Can not find a node with class name "' +
-          className +
-          '". Fallback to "Shape".'
+        className +
+        '". Fallback to "Shape".'
       );
       className = 'Shape';
     }
@@ -2957,7 +3002,7 @@ Factory.addGetterSetter(Node, 'listening', 'inherit', function(val) {
   if (!isValid) {
     Util.warn(
       val +
-        ' is a not valid value for "listening" attribute. The value may be true, false or "inherit".'
+      ' is a not valid value for "listening" attribute. The value may be true, false or "inherit".'
     );
   }
   return val;
@@ -3036,7 +3081,7 @@ Factory.addGetterSetter(Node, 'visible', 'inherit', function(val) {
   if (!isValid) {
     Util.warn(
       val +
-        ' is a not valid value for "visible" attribute. The value may be true, false or "inherit".'
+      ' is a not valid value for "visible" attribute. The value may be true, false or "inherit".'
     );
   }
   return val;

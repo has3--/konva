@@ -8,7 +8,7 @@
    * Konva JavaScript Framework v4.2.2
    * http://konvajs.org/
    * Licensed under the MIT
-   * Date: Sun Mar 29 2020
+   * Date: Wed Apr 15 2020
    *
    * Original work Copyright (C) 2011 - 2013 by Eric Rowell (KineticJS)
    * Modified work Copyright (C) 2014 - present by Anton Lavrenov (Konva)
@@ -469,6 +469,10 @@
       Transform.prototype.setAbsolutePosition = function (x, y) {
           var m0 = this.m[0], m1 = this.m[1], m2 = this.m[2], m3 = this.m[3], m4 = this.m[4], m5 = this.m[5], yt = (m0 * (y - m5) - m1 * (x - m4)) / (m0 * m3 - m1 * m2), xt = (x - m4 - m2 * yt) / m0;
           return this.translate(xt, yt);
+      };
+      Transform.prototype.toString = function () {
+          var o = this.m;
+          return "[" + o[0].toFixed(0) + ", " + o[1].toFixed(0) + ", " + o[2].toFixed(0) + ", " + o[3].toFixed(0) + ", " + o[4].toFixed(0) + ", " + o[5].toFixed(0) + "]";
       };
       return Transform;
   }());
@@ -1516,7 +1520,7 @@
   var Context = /** @class */ (function () {
       function Context(canvas) {
           this.canvas = canvas;
-          this._context = canvas._canvas.getContext('2d');
+          this._context = canvas.get2DContext();
           if (Konva.enableTrace) {
               this.traceArr = [];
               this._enableTrace();
@@ -2247,6 +2251,10 @@
           this._canvas.style.position = 'absolute';
           this._canvas.style.top = '0';
           this._canvas.style.left = '0';
+          //take context from config if supplied
+          this._context = config.svgContext
+              ? config.svgContext
+              : this._canvas.getContext("2d");
       }
       /**
        * get canvas context
@@ -2256,6 +2264,9 @@
        */
       Canvas.prototype.getContext = function () {
           return this.context;
+      };
+      Canvas.prototype.get2DContext = function () {
+          return this._context;
       };
       Canvas.prototype.getPixelRatio = function () {
           return this.pixelRatio;
@@ -2269,15 +2280,15 @@
           // take into account pixel ratio
           this.width = this._canvas.width = width * this.pixelRatio;
           this._canvas.style.width = width + 'px';
-          var pixelRatio = this.pixelRatio, _context = this.getContext()._context;
-          _context.scale(pixelRatio, pixelRatio);
+          var pixelRatio = this.pixelRatio;
+          this._context.scale(pixelRatio, pixelRatio);
       };
       Canvas.prototype.setHeight = function (height) {
           // take into account pixel ratio
           this.height = this._canvas.height = height * this.pixelRatio;
           this._canvas.style.height = height + 'px';
-          var pixelRatio = this.pixelRatio, _context = this.getContext()._context;
-          _context.scale(pixelRatio, pixelRatio);
+          var pixelRatio = this.pixelRatio;
+          this._context.scale(pixelRatio, pixelRatio);
       };
       Canvas.prototype.getWidth = function () {
           return this.width;
@@ -3854,6 +3865,7 @@
       };
       Node.prototype._getAbsoluteTransform = function (top) {
           var at;
+          var dbg = "";
           // we we need position relative to an ancestor, we will iterate for all
           if (top) {
               at = new Transform();
@@ -3861,12 +3873,16 @@
               this._eachAncestorReverse(function (node) {
                   var transformsEnabled = node.transformsEnabled();
                   if (transformsEnabled === 'all') {
-                      at.multiply(node.getTransform());
+                      var t = node.getTransform();
+                      dbg += " transformed : " + t.toString() + " (node:" + node.name() + ")\r\n";
+                      at.multiply(t);
                   }
                   else if (transformsEnabled === 'position') {
+                      dbg += " translated : " + (node.x() - node.offsetX()) + ", " + (node.y() - node.offsetY()) + " (" + node.x() + " - " + node.offsetX() + ", " + node.y() + " - " + node.offsetY() + ") (node:" + node.name() + ")\r\n";
                       at.translate(node.x() - node.offsetX(), node.y() - node.offsetY());
                   }
               }, top);
+              console.log("Node::_getAbsoluteTransform(TOP): " + at.toString() + dbg);
               return at;
           }
           else {
@@ -3874,17 +3890,24 @@
               if (this.parent) {
                   // transform will be cached
                   at = this.parent.getAbsoluteTransform().copy();
+                  dbg += " parent:";
               }
               else {
                   at = new Transform();
+                  dbg += " new:";
               }
+              dbg += at.toString();
               var transformsEnabled = this.transformsEnabled();
               if (transformsEnabled === 'all') {
-                  at.multiply(this.getTransform());
+                  var t = this.getTransform();
+                  dbg += " transformed : " + t.toString() + " (node:" + this.name() + ")\r\n";
+                  at.multiply(t);
               }
               else if (transformsEnabled === 'position') {
+                  dbg += " translated : " + (this.x() - this.offsetX()) + ", " + (this.y() - this.offsetY()) + " (" + this.x() + " - " + this.offsetX() + ", " + this.y() + " - " + this.offsetY() + ") (this:" + this.name() + ")\r\n";
                   at.translate(this.x() - this.offsetX(), this.y() - this.offsetY());
               }
+              console.log("Node::_getAbsoluteTransform: " + at.toString() + dbg);
               return at;
           }
       };
@@ -3955,6 +3978,28 @@
        */
       Node.prototype.getTransform = function () {
           return this._getCache(TRANSFORM, this._getTransform);
+      };
+      Node.prototype.getTransformSvg = function () {
+          var m = new Transform(), x = this.x(), y = this.y(), rotation = Konva.getAngle(this.rotation()), 
+          // scaleX = this.scaleX(),
+          // scaleY = this.scaleY(),
+          skewX = this.skewX(), skewY = this.skewY(), offsetX = this.offsetX(), offsetY = this.offsetY();
+          if (x !== 0 || y !== 0) {
+              m.translate(x, y);
+          }
+          if (rotation !== 0) {
+              m.rotate(rotation);
+          }
+          if (skewX !== 0 || skewY !== 0) {
+              m.skew(skewX, skewY);
+          }
+          // if (scaleX !== 1 || scaleY !== 1) {
+          //   m.scale(scaleX, scaleY);
+          // }
+          if (offsetX !== 0 || offsetY !== 0) {
+              m.translate(-1 * offsetX, -1 * offsetY);
+          }
+          return m;
       };
       Node.prototype._getTransform = function () {
           var m = new Transform(), x = this.x(), y = this.y(), rotation = Konva.getAngle(this.rotation()), scaleX = this.scaleX(), scaleY = this.scaleY(), skewX = this.skewX(), skewY = this.skewY(), offsetX = this.offsetX(), offsetY = this.offsetY();
@@ -5440,6 +5485,26 @@
           }
           return this;
       };
+      //simplified drawScene => _drawChildren
+      Container.prototype.drawSvg = function (canvas, top) {
+          var name = this && (this.name() || this.id()) || "UNDEFINED";
+          var context = canvas.getContext();
+          var layer = this.getLayer();
+          var hasComposition = this.globalCompositeOperation() !== 'source-over';
+          if (hasComposition && layer) {
+              context.save();
+              context._applyGlobalCompositeOperation(this);
+          }
+          this.children.each(function (child) {
+              if (!child.visible()) {
+                  return;
+              }
+              child.drawSvg(canvas, top);
+          });
+          if (hasComposition && layer) {
+              context.restore();
+          }
+      };
       Container.prototype.drawHit = function (can, top, caching) {
           var layer = this.getLayer(), canvas = can || (layer && layer.hitCanvas), context = canvas && canvas.getContext(), cachedCanvas = this._getCanvasCache(), cachedHitCanvas = cachedCanvas && cachedCanvas.hit;
           if (this.shouldDrawHit(canvas) || caching) {
@@ -5727,6 +5792,8 @@
       }
   }
 
+  // import { C2S } from 'canvas2svg';
+  var C2S = require("./canvas2svg.js");
   // CONSTANTS
   var STAGE$1 = 'Stage', STRING = 'string', PX = 'px', MOUSEOUT = 'mouseout', MOUSELEAVE$1 = 'mouseleave', MOUSEOVER = 'mouseover', MOUSEENTER$1 = 'mouseenter', MOUSEMOVE = 'mousemove', MOUSEDOWN = 'mousedown', MOUSEUP = 'mouseup', 
   // TODO: add them into "on" method docs and into site docs
@@ -5948,6 +6015,34 @@
               _context.drawImage(layerCanvas._canvas, x, y, layerCanvas.getWidth() / layerCanvas.getPixelRatio(), layerCanvas.getHeight() / layerCanvas.getPixelRatio());
           });
           return canvas;
+      };
+      Stage.prototype._toSvg = function (config) {
+          var libOk = C2S != null;
+          var cfgOk = config != null;
+          if (!libOk) {
+              Util.error("Missing canvas2svg.");
+          }
+          if (!cfgOk) {
+              Util.error("Missing configuration for SVG canvas.");
+          }
+          if (!libOk || !cfgOk) {
+              return null;
+          }
+          var x = config.x || 0;
+          var y = config.y || 0;
+          var width = config.width || this.width();
+          var height = config.height || this.height();
+          var pixelRatio = config.pixelRatio || 1;
+          var c2s = new C2S(width, height);
+          var cfg = {
+              width: width,
+              height: height,
+              pixelRatio: pixelRatio,
+              svgContext: c2s
+          };
+          var canvas = new SceneCanvas(cfg);
+          this.drawSvg(canvas);
+          return c2s.getSerializedSvg();
       };
       /**
        * get visible intersection shape. This is the preferred
@@ -7462,6 +7557,58 @@
           context.restore();
           return this;
       };
+      //drawScene without caching / buffer canvas usage
+      Shape.prototype.drawSvg = function (canvas, top) {
+          var layer = this.getLayer(), context = canvas.getContext(), drawFunc = this.sceneFunc(), hasShadow = this.hasShadow(), hasStroke = this.hasStroke();
+          if (!drawFunc) {
+              return this;
+          }
+          context.save();
+          context._applyLineJoin(this);
+          // layer might be undefined if we are using cache before adding to layer
+          //!caching
+          if (layer) {
+              layer._applyTransform(this, context, top);
+          }
+          else {
+              var at = this.getAbsoluteTransform(top);
+              var o = at.getMatrix();
+              context.transform(o[0], o[1], o[2], o[3], o[4], o[5]);
+          }
+          if (hasShadow && hasStroke) {
+              context.save();
+              // apply shadow
+              //!caching
+              context._applyOpacity(this);
+              context._applyGlobalCompositeOperation(this);
+              context._applyShadow(this);
+              drawFunc.call(this, context, this);
+              context.restore();
+              // if shape has stroke we need to redraw shape
+              // otherwise we will see a shadow under stroke (and over fill)
+              // but I think this is unexpected behavior
+              if (this.hasFill() && this.shadowForStrokeEnabled()) {
+                  drawFunc.call(this, context, this);
+              }
+          }
+          else if (hasShadow) {
+              context.save();
+              //!caching
+              context._applyOpacity(this);
+              context._applyGlobalCompositeOperation(this);
+              context._applyShadow(this);
+              drawFunc.call(this, context, this);
+              context.restore();
+          }
+          else {
+              //!caching
+              context._applyOpacity(this);
+              context._applyGlobalCompositeOperation(this);
+              drawFunc.call(this, context, this);
+          }
+          context.restore();
+          return this;
+      };
       Shape.prototype.drawHit = function (can, top, caching) {
           var layer = this.getLayer(), canvas = can || layer.hitCanvas, context = canvas && canvas.getContext(), drawFunc = this.hitFunc() || this.sceneFunc(), cachedCanvas = this._getCanvasCache(), cachedHitCanvas = cachedCanvas && cachedCanvas.hit;
           if (!this.colorKey) {
@@ -8706,6 +8853,17 @@
               canvas.getContext().clear();
           }
           Container.prototype.drawScene.call(this, canvas, top);
+          this._fire(DRAW, {
+              node: this
+          });
+          return this;
+      };
+      //drawScene without clear
+      Layer.prototype.drawSvg = function (can) {
+          this._fire(BEFORE_DRAW, {
+              node: this
+          });
+          Container.prototype.drawSvg.call(this, can);
           this._fire(DRAW, {
               node: this
           });
@@ -11006,12 +11164,12 @@
       Image.prototype.getWidth = function () {
           var _a;
           var image = this.image();
-          return _a = this.attrs.width, (_a !== null && _a !== void 0 ? _a : (image ? image.width : 0));
+          return (_a = this.attrs.width) !== null && _a !== void 0 ? _a : (image ? image.width : 0);
       };
       Image.prototype.getHeight = function () {
           var _a;
           var image = this.image();
-          return _a = this.attrs.height, (_a !== null && _a !== void 0 ? _a : (image ? image.height : 0));
+          return (_a = this.attrs.height) !== null && _a !== void 0 ? _a : (image ? image.height : 0);
       };
       /**
        * load image from given url and create `Konva.Image` instance

@@ -7,6 +7,7 @@ import { Konva } from './Global';
 
 import { GetSet, IRect } from './types';
 import { Shape } from './Shape';
+import { Canvas } from './Canvas';
 
 export interface ContainerConfig extends NodeConfig {
   clearBeforeDraw?: boolean;
@@ -29,7 +30,7 @@ export interface ContainerConfig extends NodeConfig {
  */
 export abstract class Container<ChildType extends Node> extends Node<
   ContainerConfig
-> {
+  > {
   children = new Collection<ChildType>();
 
   /**
@@ -349,6 +350,29 @@ export abstract class Container<ChildType extends Node> extends Node<
       }
     }
     return this;
+  }
+  //simplified drawScene => _drawChildren
+  drawSvg(canvas: Canvas, top?: Node) {
+    let name = this && (this.name() || this.id()) || "UNDEFINED";
+    let context = canvas.getContext();
+
+    let layer = this.getLayer();
+    let hasComposition = this.globalCompositeOperation() !== 'source-over';
+    if (hasComposition && layer) {
+      context.save();
+      context._applyGlobalCompositeOperation(this);
+    }
+
+    this.children.each(function(child) {
+      if(!child.visible()){
+        return;
+      }
+      child.drawSvg(canvas, top);
+    });
+
+    if (hasComposition && layer) {
+      context.restore();
+    }
   }
   drawHit(can, top, caching) {
     var layer = this.getLayer(),

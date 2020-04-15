@@ -8,7 +8,8 @@ import {
   getBooleanValidator
 } from './Validators';
 
-import { Context } from './Context';
+import { Context, SceneContext } from './Context';
+import { Canvas } from './Canvas';
 import { _registerNode } from './Global';
 import * as PointerEvents from './PointerEvents';
 
@@ -158,7 +159,7 @@ function _clearRadialGradientCache() {
  */
 export class Shape<Config extends ShapeConfig = ShapeConfig> extends Node<
   Config
-> {
+  > {
   _centroid: boolean;
   colorKey: string;
 
@@ -640,6 +641,66 @@ export class Shape<Config extends ShapeConfig = ShapeConfig> extends Node<
         drawFunc.call(this, context, this);
       }
     }
+    context.restore();
+    return this;
+  }
+  //drawScene without caching / buffer canvas usage
+  drawSvg(canvas: Canvas, top?: Node) {
+    var layer = this.getLayer(),
+      context = canvas.getContext() as SceneContext,
+      drawFunc = this.sceneFunc(),
+      hasShadow = this.hasShadow(),
+      hasStroke = this.hasStroke();
+
+    if (!drawFunc) {
+      return this;
+    }
+    context.save();
+    context._applyLineJoin(this);
+    // layer might be undefined if we are using cache before adding to layer
+    //!caching
+    if (layer) {
+      layer._applyTransform(this, context, top);
+    } else {
+      var at = this.getAbsoluteTransform(top);
+      var o = at.getMatrix();
+      context.transform(o[0], o[1], o[2], o[3], o[4], o[5]);
+    }
+
+    if (hasShadow && hasStroke) {
+      context.save();
+      // apply shadow
+      //!caching
+      context._applyOpacity(this);
+      context._applyGlobalCompositeOperation(this);
+
+      context._applyShadow(this);
+      drawFunc.call(this, context, this);
+      context.restore();
+
+      // if shape has stroke we need to redraw shape
+      // otherwise we will see a shadow under stroke (and over fill)
+      // but I think this is unexpected behavior
+      if (this.hasFill() && this.shadowForStrokeEnabled()) {
+        drawFunc.call(this, context, this);
+      }
+    } else if (hasShadow) {
+      context.save();
+      //!caching
+      context._applyOpacity(this);
+      context._applyGlobalCompositeOperation(this);
+
+      context._applyShadow(this);
+      drawFunc.call(this, context, this);
+      context.restore();
+    } else {
+      //!caching
+      context._applyOpacity(this);
+      context._applyGlobalCompositeOperation(this);
+
+      drawFunc.call(this, context, this);
+    }
+
     context.restore();
     return this;
   }

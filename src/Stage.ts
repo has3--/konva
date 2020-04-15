@@ -337,8 +337,7 @@ export class Stage extends Container<BaseLayer> {
     } as ICanvasConfig;
 
     let canvas = new SceneCanvas(cfg);
-
-    this.drawScene(canvas, this, true);
+    this.drawSvg(canvas);
 
     return c2s.getSerializedSvg();
   }
